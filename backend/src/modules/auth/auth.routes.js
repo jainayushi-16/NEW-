@@ -10,7 +10,6 @@ import {
   validateChangePassword,
   validateForgotPassword,
   validateResetPassword,
-  validateUpdateProfile,
 } from "./auth.validation.js";
 
 const router = express.Router();
@@ -37,7 +36,6 @@ router.post("/reset-password", validateResetPassword, authController.resetPasswo
 
 router.post("/change-password", authenticate, validateChangePassword, authController.changePassword);
 router.get("/me", authenticate, authController.getMe);
-router.put("/me", authenticate, validateUpdateProfile, authController.updateProfile);
 
 // Session management endpoints
 router.get("/sessions", authenticate, authController.getSessions);

@@ -1,6 +1,5 @@
 import { AppError } from "../../shared/response.js";
 import { generateAccessToken, generateRefreshToken } from "../../config/jwt.js";
-import config from "../../config/env.js";
 import {
   hashPassword,
   comparePassword,
@@ -18,8 +17,6 @@ import crypto from "crypto";
 export class AuthService {
   constructor(authRepository) {
     this.authRepository = authRepository;
-    this.PASSWORD_EXPIRY_DAYS = config.PASSWORD_EXPIRY_DAYS || 90;
-    this.MAX_CONCURRENT_SESSIONS = config.MAX_CONCURRENT_SESSIONS || 3;
   }
 
 
@@ -100,7 +97,7 @@ export class AuthService {
           emailVerificationOtp: otp,
           emailVerificationExpiresAt: expiry,
         });
-        logger.debug(`📧 [EMAIL EMULATOR] Verification OTP generated for ${user.email}`);
+        logger.info(`📧 [EMAIL EMULATOR] Verification OTP for ${user.email} (Re-generated): ${otp}`);
       }
 
       return {
@@ -110,11 +107,12 @@ export class AuthService {
       };
     }
 
-    // 4.5. Password Expiration check (Enterprise policy)
+    // 4.5. Password Expiration check (Enterprise policy: 90 days expiration)
+    const PASSWORD_EXPIRY_DAYS = 90;
     const historyList = await this.authRepository.getPasswordHistory(user.id, 1);
     const lastChanged = historyList[0]?.createdAt || user.createdAt;
     const daysSinceChange = (Date.now() - lastChanged.getTime()) / (24 * 60 * 60 * 1000);
-    if (daysSinceChange > this.PASSWORD_EXPIRY_DAYS) {
+    if (daysSinceChange > PASSWORD_EXPIRY_DAYS) {
       return {
         emailVerified: true,
         passwordExpired: true,
@@ -125,7 +123,8 @@ export class AuthService {
 
     // 5. Seat Sharing Check: Enforce concurrent active session limit (Enterprise CRM compliance)
     const activeSessionsCount = await this.authRepository.findActiveSessionsCount(user.id);
-    if (activeSessionsCount >= this.MAX_CONCURRENT_SESSIONS) {
+    const MAX_CONCURRENT_SESSIONS = 3; // Standard seat license limit
+    if (activeSessionsCount >= MAX_CONCURRENT_SESSIONS) {
       logger.info(`⚠️ Evicting oldest active session for user ${user.id} to enforce concurrent limit.`);
       await this.authRepository.deleteOldestSession(user.id);
     }
@@ -335,7 +334,7 @@ export class AuthService {
       emailVerificationExpiresAt: expiry,
     });
 
-    logger.debug(`📧 [EMAIL EMULATOR] Verification OTP resent to ${user.email}`);
+    logger.info(`📧 [EMAIL EMULATOR] Resent verification OTP to ${user.email}: ${otp}`);
 
     await this.authRepository.createAuditLog({
       organizationId: user.organizationId,
@@ -362,7 +361,7 @@ export class AuthService {
       passwordResetExpiresAt: expiry,
     });
 
-    logger.debug(`📧 [EMAIL EMULATOR] Password reset OTP generated for ${user.email}`);
+    logger.info(`📧 [EMAIL EMULATOR] Password reset OTP for ${user.email}: ${otp}`);
 
     await this.authRepository.createAuditLog({
       organizationId: user.organizationId,
@@ -591,46 +590,6 @@ export class AuthService {
     });
 
     return true;
-  }
-
-  /**
-   * Update user profile
-   * @param {string} userId - UUID of user
-   * @param {object} updateData - { firstName, lastName, phoneNumber }
-   */
-  async updateProfile(userId, updateData) {
-    const allowedFields = ['firstName', 'lastName', 'phoneNumber'];
-    const sanitizedData = {};
-
-    for (const field of allowedFields) {
-      if (field in updateData) {
-        sanitizedData[field] = updateData[field];
-      }
-    }
-
-    if (Object.keys(sanitizedData).length === 0) {
-      throw AppError.badRequest('No valid fields to update');
-    }
-
-    const updated = await this.authRepository.updateUserProfile(userId, sanitizedData);
-    return this.userDTO(updated);
-  }
-
-  /**
-   * DTO transformation for user profile
-   */
-  userDTO(user) {
-    return {
-      id: user.id,
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      phoneNumber: user.phoneNumber,
-      isActive: user.isActive,
-      emailVerifiedAt: user.emailVerifiedAt,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-    };
   }
 }
 

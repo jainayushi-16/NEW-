@@ -1,7 +1,11 @@
 import express from 'express';
 import multer from 'multer';
-import { CloudinaryStorage } from 'multer-storage-cloudinary';
-import cloudinary from '../../../config/cloudinary.js';
+// import { CloudinaryStorage } from 'multer-storage-cloudinary';
+// 
+import { v2 as cloudinary } from 'cloudinary';
+import pkg from 'multer-storage-cloudinary';
+const CloudinaryStorage = pkg.CloudinaryStorage || pkg;
+
 
 import validate from '../../../middlewares/validation.middleware.js';
 import { authenticate, requireOrganization, authorize } from '../../../middlewares/auth.middleware.js';

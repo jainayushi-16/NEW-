@@ -15,7 +15,7 @@
     "axios": "^1.18.1",
     "bcryptjs": "^3.0.3",
     "bullmq": "^5.79.3",
-    "cloudinary": "^1.41.3",
+    "cloudinary": "^2.10.0",
     "compression": "^1.8.1",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
@@ -28,7 +28,7 @@
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.11.0",
     "multer": "^2.2.0",
-    "multer-storage-cloudinary": "^4.0.0",
+    "multer-storage-cloudinary": "^2.2.1",
     "nodemailer": "^9.0.3",
     "openai": "^6.45.0",
     "pdfkit": "^0.19.1",
@@ -49,6 +49,6 @@
     "eslint-plugin-import": "^2.32.0",
     "nodemon": "^3.1.14",
     "prettier": "^3.8.4",
-    "prisma": "^7.8.0"
+    "prisma": "^6.19.3"
   }
 }
