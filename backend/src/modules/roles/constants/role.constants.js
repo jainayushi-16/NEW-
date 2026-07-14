@@ -1,0 +1,40 @@
+export const ENTERPRISE_ROLES = {
+  ORGANIZATION_ADMINISTRATOR: 'Organization Administrator',
+  HEAD_OF_SALES: 'Head of Sales',
+  SALES_MANAGER: 'Sales Manager',
+  SALES_PERSON: 'Sales Person',
+};
+
+export const ENTERPRISE_ROLE_LEVELS = {
+  ORGANIZATION_ADMINISTRATOR: 1,
+  HEAD_OF_SALES: 2,
+  SALES_MANAGER: 3,
+  SALES_PERSON: 4,
+};
+
+export const ENTERPRISE_ROLE_HIERARCHY = {
+  [ENTERPRISE_ROLES.ORGANIZATION_ADMINISTRATOR]: null,
+  [ENTERPRISE_ROLES.HEAD_OF_SALES]: ENTERPRISE_ROLES.ORGANIZATION_ADMINISTRATOR,
+  [ENTERPRISE_ROLES.SALES_MANAGER]: ENTERPRISE_ROLES.HEAD_OF_SALES,
+  [ENTERPRISE_ROLES.SALES_PERSON]: ENTERPRISE_ROLES.SALES_MANAGER,
+};
+
+export const RESERVED_ROLE_NAMES = [
+  'administrator',
+  'admin',
+  'superadmin',
+  'super_admin',
+  'system',
+  'system_admin',
+  'root',
+  'guest',
+  'anonymous',
+  'public',
+];
+
+export const ROLE_VALIDATION = {
+  NAME_MIN_LENGTH: 3,
+  NAME_MAX_LENGTH: 50,
+  DESCRIPTION_MAX_LENGTH: 255,
+  PERMISSIONS_MAX_COUNT: 100,
+};
