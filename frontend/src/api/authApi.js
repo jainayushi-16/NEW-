@@ -12,7 +12,22 @@ export const resetPassword = (token, data) => {
   return api.post(`/auth/reset-password/${token}`, data);
 };
 
-export const logout = () => {
-  localStorage.removeItem("token");
-  localStorage.removeItem("user");
+export const logout = async () => {
+  const refreshToken = localStorage.getItem("refreshToken");
+
+  try {
+    // Backend expects body tokenValue for logout.
+    // If your backend is different, adjust payload here.
+    if (refreshToken) {
+      await api.post("/auth/logout", { tokenValue: refreshToken });
+    } else {
+      await api.post("/auth/logout");
+    }
+  } catch {
+    // Ignore network errors and always clear local session.
+  } finally {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    localStorage.removeItem("refreshToken");
+  }
 };

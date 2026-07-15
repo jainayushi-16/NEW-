@@ -40,13 +40,27 @@ export class AuthService {
 
     // 2. Password Check & Increment Lockout counter on failure
     const isPasswordValid = await comparePassword(password, user.passwordHash);
+    // Add a small debug to help diagnose wrong passwordHash / payload mapping.
+    logger.info(`🔑 Password compare result for ${email}: ${isPasswordValid}`);
     if (!isPasswordValid) {
-      const failedAttempts = user.failedLoginAttempts + 1;
-      const updateData = { failedLoginAttempts: failedAttempts };
+
+      // failedLoginAttempts / lockout fields are optional in DB schema.
+      // Your current Prisma User model does NOT have these fields, so guard updates.
+      const failedAttempts = (user.failedLoginAttempts ?? 0) + 1;
+      const updateData = (user.failedLoginAttempts !== undefined)
+        ? { failedLoginAttempts: failedAttempts }
+        : {};
+
 
       if (failedAttempts >= AUTH_CONSTANTS.LOCKOUT.MAX_FAILED_ATTEMPTS) {
-        updateData.lockoutExpiresAt = new Date(Date.now() + AUTH_CONSTANTS.LOCKOUT.DURATION_MS);
-        updateData.failedLoginAttempts = 0; // reset for next lockout cycle
+        // lockout fields may not exist in DB schema
+        if (user.lockoutExpiresAt !== undefined) {
+          updateData.lockoutExpiresAt = new Date(Date.now() + AUTH_CONSTANTS.LOCKOUT.DURATION_MS);
+        }
+        if (user.failedLoginAttempts !== undefined) {
+          updateData.failedLoginAttempts = 0; // reset for next lockout cycle
+        }
+
 
         // Log Account lockout event
         await this.authRepository.createAuditLog({
@@ -79,13 +93,20 @@ export class AuthService {
       throw AppError.unauthorized("Invalid email or password.");
     }
 
-    // 3. Reset lockout counters on successful match
-    if (user.failedLoginAttempts > 0 || user.lockoutExpiresAt) {
-      await this.authRepository.updateUser(user.id, {
-        failedLoginAttempts: 0,
-        lockoutExpiresAt: null,
-      });
+    // 3. Reset lockout counters on successful match (only if fields exist)
+    const hasFailedAttemptsField = user.failedLoginAttempts !== undefined;
+    const hasLockoutField = user.lockoutExpiresAt !== undefined;
+
+    if ((hasFailedAttemptsField && user.failedLoginAttempts > 0) || hasLockoutField) {
+      const resetPayload = {};
+      if (hasFailedAttemptsField) resetPayload.failedLoginAttempts = 0;
+      if (hasLockoutField) resetPayload.lockoutExpiresAt = null;
+
+      if (Object.keys(resetPayload).length > 0) {
+        await this.authRepository.updateUser(user.id, resetPayload);
+      }
     }
+
 
     // 4. Force Email Verification check
     if (!user.emailVerifiedAt) {

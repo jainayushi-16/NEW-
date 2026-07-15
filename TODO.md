@@ -1,8 +1,15 @@
-# TODO (BlackboxAI integration layer)
+# TODO - Authentication wiring (backend APIs)
 
-- [x] Inspect existing AILeads integration (AI lead engine APIs, rendering, state)
-- [ ] Add explicit `error` state + improve fetch robustness in `frontend/src/pages/admin/AILeads.jsx`
-- [ ] Ensure Authorization/JWT headers are correctly applied (via `frontend/src/services/api.js`)
-- [ ] Add role-based behavior for auth usage on protected pages (use AuthContext + authApi where applicable)
-- [ ] Create/confirm branch for organization territory + role-based auth wiring
+## Step 1
+- [x] Fix frontend login response parsing to use backend `accessToken` + `user` correctly.
+
+## Step 2
+- [x] Persist `localStorage.token` as accessToken (so ProtectedRoute + axios interceptor work).
+
+## Step 3
+- [x] Wire logout to call backend `POST /auth/logout` before clearing localStorage.
+
+
+## Step 4
+- [ ] Quick manual test: login -> token stored -> protected routes accessible.
 

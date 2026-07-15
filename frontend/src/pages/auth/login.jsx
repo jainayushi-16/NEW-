@@ -3,6 +3,8 @@ import { useNavigate } from "react-router";
 import { Mail, Lock, Eye, EyeOff, Loader2 } from "lucide-react";
 import { login } from "../../api/authApi.js";
 
+
+
 export default function Login() {
   const navigate = useNavigate();
 
@@ -169,9 +171,24 @@ export default function Login() {
         password: rawPassword,
       });
 
-      const { user, tokens } = response.data.data;
-      localStorage.setItem("token", tokens.accessToken);
+      // Backend may respond as either: { data: { ... } } or { ... }
+      const payload = response?.data?.data ?? response?.data;
+
+      // AuthController returns: { user, tokens: { accessToken } }
+      const user = payload?.user;
+      const accessToken = payload?.tokens?.accessToken ?? payload?.accessToken;
+
+      if (!accessToken || !user) {
+        throw new Error("Invalid login response from server.");
+      }
+
+      localStorage.setItem("token", accessToken);
+
+      // refresh token is stored as HTTP-only cookie by backend, so body refreshToken may be absent.
       localStorage.setItem("user", JSON.stringify(user));
+
+
+
 
       if (rememberMe) {
         localStorage.setItem("rememberedEmail", sanitizedEmail);
@@ -179,13 +196,17 @@ export default function Login() {
         localStorage.removeItem("rememberedEmail");
       }
 
-      switch (user.role) {
+      // backend returns first role only (as `role`) or may vary depending on controller
+      const role = user?.role || user?.roles?.[0] || user?.roleName;
+
+      switch (role) {
         case "ADMIN": navigate("/admin/dashboard"); break;
         case "HEAD_SALES": navigate("/headsales/dashboard"); break;
         case "SALES_MANAGER": navigate("/salesmanager/dashboard"); break;
         case "SALES_PERSON": navigate("/salesperson/dashboard"); break;
         default: navigate("/");
       }
+
     } catch (err) {
       console.error(err);
       if (err.response?.data?.message) {
