@@ -148,12 +148,25 @@ export class AuthService {
       expiresAt: sessionExpiry,
     });
 
+    const roles = Array.isArray(user.roles) ? user.roles : [];
+    const firstRole = roles[0] || {};
+
+    const permissions = roles.flatMap((ur) => {
+      const role = ur?.role;
+      const perms = role?.permissions;
+      if (!Array.isArray(perms)) return [];
+
+      return perms
+        .map((rp) => rp?.permission?.slug)
+        .filter(Boolean);
+    });
+
     const accessPayload = {
       userId: user.id,
       organizationId: user.organizationId,
-      roleId: user.roles[0]?.roleId || null,
-      roleName: user.roles[0]?.role.name || null,
-      permissions: user.roles.flatMap((ur) => ur.role.permissions.map((rp) => rp.permission.slug)),
+      roleId: firstRole?.roleId ?? null,
+      roleName: firstRole?.role?.name ?? null,
+      permissions,
     };
 
     const accessToken = generateAccessToken(accessPayload);
@@ -235,12 +248,26 @@ export class AuthService {
 
     // Create rotated token pair
     const fullUser = await this.authRepository.findUserById(user.id);
+
+    const roles = Array.isArray(fullUser?.roles) ? fullUser.roles : [];
+    const firstRole = roles[0] || {};
+
+    const permissions = roles.flatMap((ur) => {
+      const role = ur?.role;
+      const perms = role?.permissions;
+      if (!Array.isArray(perms)) return [];
+
+      return perms
+        .map((rp) => rp?.permission?.slug)
+        .filter(Boolean);
+    });
+
     const accessPayload = {
       userId: user.id,
       organizationId: session.organizationId,
-      roleId: fullUser.roles[0]?.roleId || null,
-      roleName: fullUser.roles[0]?.role.name || null,
-      permissions: fullUser.roles.flatMap((ur) => ur.role.permissions.map((rp) => rp.permission.slug)),
+      roleId: firstRole?.roleId ?? null,
+      roleName: firstRole?.role?.name ?? null,
+      permissions,
     };
 
     const newAccessToken = generateAccessToken(accessPayload);

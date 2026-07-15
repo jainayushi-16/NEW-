@@ -1,14 +1,86 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BrainCircuit, Sparkles, TrendingUp, ArrowRight } from "lucide-react";
 import Button from "../../components/ui/Button.jsx";
 import Card from "../../components/ui/Card.jsx";
 import { useStorage } from "../../hooks/useLocalStorage.js";
+import {
+  listProspects,
+  listCampaigns,
+  listTemplates,
+} from "../../api/aiLeadEngineApi.js";
+import { showError } from "../../context/ToastContext.jsx";
 
 const stages = ["New", "Qualified", "Proposal", "Negotiation", "Won", "Lost"];
 
 export default function AILeads() {
-  const { data: leads, update } = useStorage("leads");
+  // Keep existing mock UI behavior available as fallback.
+  const { data: mockLeads, update } = useStorage("leads");
   const [filter, setFilter] = useState("all");
+
+  // Backend-driven state (used when API responses are available)
+  const [backendProspects, setBackendProspects] = useState([]);
+  const [backendCampaigns, setBackendCampaigns] = useState([]);
+  const [backendTemplates, setBackendTemplates] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const run = async () => {
+      setError(null);
+      try {
+        setLoading(true);
+
+        const [prospectsRes, campaignsRes, templatesRes] = await Promise.all([
+          listProspects({}),
+          listCampaigns({}),
+          listTemplates(),
+        ]);
+
+        // Normalize axios shape: { data: { data: [...] } } OR { data: [...] }
+        const prospects = prospectsRes?.data?.data ?? prospectsRes?.data ?? [];
+        const campaigns = campaignsRes?.data?.data ?? campaignsRes?.data ?? [];
+        const templates = templatesRes?.data?.data ?? templatesRes?.data ?? [];
+
+        if (!mounted) return;
+        setBackendProspects(Array.isArray(prospects) ? prospects : []);
+        setBackendCampaigns(Array.isArray(campaigns) ? campaigns : []);
+        setBackendTemplates(Array.isArray(templates) ? templates : []);
+      } catch (e) {
+        if (!mounted) return;
+
+        console.error(e);
+        setError(e);
+        // Don’t break the page: mock data still renders.
+        showError("Failed to load AI Lead Engine data. Using local mock leads.");
+
+        setBackendProspects([]);
+        setBackendCampaigns([]);
+        setBackendTemplates([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    run();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const leads = (backendProspects && backendProspects.length ? backendProspects : mockLeads).map((lead) => ({
+    // Normalize fields so existing UI doesn’t need large changes.
+    id: lead.id ?? lead.prospectId ?? lead._id ?? `${lead.company ?? lead.name ?? "lead"}-${Math.random()}`,
+    company: lead.company ?? lead.organization ?? lead.companyName,
+    name: lead.name,
+    contact: lead.contact ?? lead.email ?? lead.phone,
+    owner: lead.owner ?? lead.assignedTo,
+    amount: lead.amount ?? lead.expectedValue,
+    priority: lead.priority ?? lead.priorityLabel,
+    stage: lead.stage ?? lead.pipelineStage,
+  }));
+
 
   const filteredLeads = useMemo(() => {
     if (filter === "all") return leads;
