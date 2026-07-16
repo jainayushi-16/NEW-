@@ -1,15 +1,10 @@
-# TODO - Authentication wiring (backend APIs)
-
-## Step 1
-- [x] Fix frontend login response parsing to use backend `accessToken` + `user` correctly.
-
-## Step 2
-- [x] Persist `localStorage.token` as accessToken (so ProtectedRoute + axios interceptor work).
-
-## Step 3
-- [x] Wire logout to call backend `POST /auth/logout` before clearing localStorage.
+- [x] Fix `frontend/src/pages/admin/users.jsx` user form multi-select roleIds wiring (react-hook-form)
+- [x] Ensure payload mapping is correct (phoneNumber, isActive/status)
+- [ ] Replace direct user API calls with helpers from `frontend/src/api/dashboardApi.js` (optional consistency)
 
 
-## Step 4
-- [ ] Quick manual test: login -> token stored -> protected routes accessible.
+- [ ] Replace direct user API calls with helpers from `frontend/src/api/dashboardApi.js` (optional consistency)
+- [ ] Quick client-side guards: don’t submit without roleIds / handle roles loaded state
+- [ ] Run frontend build/lint to ensure no TS/ESLint/runtime errors
 
+ 

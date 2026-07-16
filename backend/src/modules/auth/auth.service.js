@@ -28,9 +28,20 @@ export class AuthService {
    */
   async login(email, password, requestMeta = {}) {
     const user = await this.authRepository.findUserByEmail(email);
+
+    // Debug: confirms which email record we fetched and whether passwordHash exists.
+    // Use console.log so it appears regardless of winston logger configuration.
+    // eslint-disable-next-line no-console
+    console.log("[AuthService.login] email:", email, "userFound:", Boolean(user), "passwordHashPresent:", Boolean(user?.passwordHash));
+
+    // eslint-disable-next-line no-console
+    console.log("[AuthService.login] request body password length:", typeof password === 'string' ? password.length : 'non-string');
+
     if (!user) {
+
       throw AppError.unauthorized("Invalid email or password.");
     }
+
 
     // 1. Lockout Check
     if (user.lockoutExpiresAt && user.lockoutExpiresAt > new Date()) {
@@ -40,9 +51,12 @@ export class AuthService {
 
     // 2. Password Check & Increment Lockout counter on failure
     const isPasswordValid = await comparePassword(password, user.passwordHash);
-    // Add a small debug to help diagnose wrong passwordHash / payload mapping.
+    // Debug to confirm what the backend is comparing.
+    // NOTE: Do NOT log the raw hash in production.
     logger.info(`🔑 Password compare result for ${email}: ${isPasswordValid}`);
     if (!isPasswordValid) {
+      logger.warn(`🔑 Login failed for ${email}. (passwordHash present: ${Boolean(user.passwordHash)})`);
+
 
       // failedLoginAttempts / lockout fields are optional in DB schema.
       // Your current Prisma User model does NOT have these fields, so guard updates.

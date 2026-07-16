@@ -11,4 +11,11 @@ export default defineConfig({
      }),
    tailwindcss()
   ],
+  server: {
+    proxy: {
+      // Forward frontend /api/* to backend server to avoid CORS issues.
+      '^/api': 'http://localhost:5000',
+    },
+  },
 })
+

@@ -12,49 +12,20 @@ import {
   Save,
 } from "lucide-react";
 
+import {
+  getDashboardData,
+  createBranch,
+  updateBranch,
+  deleteBranch as deleteBranchApi,
+} from "../../api/dashboardApi.js";
+
 export default function Branches() {
   /* ===========================
-      MOCK BRANCH DATA
+      BRANCH DATA (API-driven)
   =========================== */
 
-  const [branches, setBranches] = useState([
-    {
-      id: 1,
-      name: "Indore Branch",
-      code: "BR001",
-      manager: "Rahul Sharma",
-      territory: "Central Zone",
-      employees: 25,
-      phone: "9876543210",
-      email: "indore@abcpharma.com",
-      address: "Vijay Nagar, Indore",
-      status: "Active",
-    },
-    {
-      id: 2,
-      name: "Bhopal Branch",
-      code: "BR002",
-      manager: "Amit Verma",
-      territory: "North Zone",
-      employees: 18,
-      phone: "9876543211",
-      email: "bhopal@abcpharma.com",
-      address: "MP Nagar, Bhopal",
-      status: "Active",
-    },
-    {
-      id: 3,
-      name: "Ujjain Branch",
-      code: "BR003",
-      manager: "Neha Jain",
-      territory: "West Zone",
-      employees: 15,
-      phone: "9876543212",
-      email: "ujjain@abcpharma.com",
-      address: "Freeganj, Ujjain",
-      status: "Inactive",
-    },
-  ]);
+  const [branches, setBranches] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   /* ===========================
       SEARCH & FILTER
@@ -92,19 +63,33 @@ export default function Branches() {
   const [formData, setFormData] = useState(emptyBranch);
 
   useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem("sfa_org_branches") || "[]");
-      if (Array.isArray(saved) && saved.length) {
-        setBranches(saved);
+    let mounted = true;
+
+    const load = async () => {
+      try {
+        setLoading(true);
+        const data = await getDashboardData();
+        if (!mounted) return;
+
+        // dashboardApi returns branches as data from backend.
+        setBranches(Array.isArray(data?.branches) ? data.branches : []);
+        // Some backends return { data: { branches: [...] } } vs { data: [...] }
+        // This page expects plain arrays.
+        
+      } catch (e) {
+        console.error("Failed to load branches", e);
+      } finally {
+        if (mounted) setLoading(false);
       }
-    } catch {
-      // ignore invalid storage data
-    }
+    };
+
+    load();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem("sfa_org_branches", JSON.stringify(branches));
-  }, [branches]);
 
   /* ===========================
       INPUT CHANGE
@@ -147,37 +132,69 @@ export default function Branches() {
     setFormData({ ...emptyBranch });
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.name || !formData.code || !formData.manager) {
       alert("Please fill all required fields.");
       return;
     }
 
-    setBranches((prev) => {
-      if (editingBranch) {
-        return prev.map((branch) =>
-          branch.id === editingBranch.id ? { ...formData, id: editingBranch.id } : branch
-        );
-      }
-      return [...prev, { ...formData, id: Date.now() }];
-    });
+    try {
+      const payload = {
+        name: formData.name,
+        code: formData.code,
+        manager: formData.manager,
+        territory: formData.territory,
+        employees: formData.employees,
+        phone: formData.phone,
+        email: formData.email,
+        address: formData.address,
+        status: formData.status,
+      };
 
-    resetBranchModal();
+      if (editingBranch) {
+        await updateBranch(editingBranch.id, payload);
+        setBranches((prev) =>
+          prev.map((b) => (b.id === editingBranch.id ? { ...b, ...payload } : b))
+        );
+      } else {
+        const res = await createBranch(payload);
+        // Try to merge server response if it returns the created entity.
+        const created = res?.data?.data ?? res?.data ?? payload;
+        setBranches((prev) => [
+          ...prev,
+          created && typeof created === "object" ? created : { ...payload, id: Date.now() },
+        ]);
+      }
+
+      resetBranchModal();
+    } catch (e) {
+      console.error("Failed to save branch", e);
+      alert("Failed to save branch.");
+    }
   };
+
 
   const handleSubmit = (e) => {
     e.preventDefault();
     handleSave();
   };
 
+
   /* ===========================
       DELETE BRANCH
   =========================== */
 
-  const confirmDelete = () => {
-    setBranches((prev) => prev.filter((branch) => branch.id !== deleteBranch.id));
-    setDeleteBranch(null);
+  const confirmDelete = async () => {
+    try {
+      await deleteBranchApi(deleteBranch.id);
+      setBranches((prev) => prev.filter((branch) => branch.id !== deleteBranch.id));
+      setDeleteBranch(null);
+    } catch (e) {
+      console.error("Failed to delete branch", e);
+      alert("Failed to delete branch.");
+    }
   };
+
 
   /* ===========================
       FILTERED DATA

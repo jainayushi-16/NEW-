@@ -25,50 +25,8 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [globalError, setGlobalError] = useState("");
 
-  // Static Mock Users Data Configuration
-  // const mockUsers = [
-  //   {
-  //     name: "Admin",
-  //     role: "ADMIN",
-  //     email: "admin@sfa.com",
-  //     password: "admin123",
-  //     dashboard: "/admin/dashboard",
-  //     icon: "🛠️",
-  //   },
-  //   {
-  //     name: "Head of Sales",
-  //     role: "HEAD_SALES",
-  //     email: "headsales@sfa.com",
-  //     password: "headsales123",
-  //     dashboard: "/headsales/dashboard",
-  //     icon: "📈",
-  //   },
-  //   {
-  //     name: "Sales Manager",
-  //     role: "SALES_MANAGER",
-  //     email: "manager@sfa.com",
-  //     password: "manager123",
-  //     dashboard: "/salesmanager/dashboard",
-  //     icon: "👨‍💼",
-  //   },
-  //   {
-  //     name: "Sales Executive",
-  //     role: "SALES_PERSON",
-  //     email: "sales@sfa.com",
-  //     password: "sales123",
-  //     dashboard: "/salesperson/dashboard",
-  //     icon: "🚗",
-  //   },
-  // ];
+  // NOTE: login page should not rely on mock/local stored remembered emails.
 
-  // Lifecycle Hook: Load Remembered Email
-  useEffect(() => {
-    const rememberedEmail = localStorage.getItem("rememberedEmail");
-    if (rememberedEmail) {
-      setForm((prev) => ({ ...prev, email: rememberedEmail }));
-      setRememberMe(true);
-    }
-  }, []);
 
   // Structural Validation Helper
   const validateField = (name, value) => {
@@ -165,47 +123,80 @@ export default function Login() {
       //   return; 
       // }
 
-      // STEP 2: Live Network API Fallback Flow
-      const response = await login({
-        email: sanitizedEmail,
-        password: rawPassword,
-      });
+      // STEP 2: Live Network API Flow
+      // Send payload exactly as backend AuthController.login expects: { email, password }
+      const response = await login({ email: sanitizedEmail, password: rawPassword });
 
-      // Backend may respond as either: { data: { ... } } or { ... }
-      const payload = response?.data?.data ?? response?.data;
+      // AuthController.handleSuccess -> ApiResponse.success(...)
+      // Shape: { success, message, data, meta }
+      const responseBody = response?.data;
+      const payload = responseBody?.data ?? responseBody;
 
-      // AuthController returns: { user, tokens: { accessToken } }
       const user = payload?.user;
-      const accessToken = payload?.tokens?.accessToken ?? payload?.accessToken;
+      const accessToken = payload?.tokens?.accessToken;
 
       if (!accessToken || !user) {
-        throw new Error("Invalid login response from server.");
+        throw new Error("Login succeeded but token/user missing from response.");
       }
+
+      // Clear old token first to avoid stale-token issues
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
 
       localStorage.setItem("token", accessToken);
 
+
       // refresh token is stored as HTTP-only cookie by backend, so body refreshToken may be absent.
+      // Persist user context needed by organization/branch-aware backend features.
       localStorage.setItem("user", JSON.stringify(user));
 
+      // Optional but requested by backend integrations
+      const orgId = user?.organizationId ?? user?.organization?.id ?? user?.organization?.organizationId;
+      const orgName = user?.organizationName ?? user?.organization?.name;
+      const branchId = user?.branchId ?? user?.branch?.id;
+
+      if (orgId) localStorage.setItem("organizationId", orgId);
+      if (orgName) localStorage.setItem("organizationName", orgName);
+      if (branchId) localStorage.setItem("branchId", branchId);
 
 
 
-      if (rememberMe) {
-        localStorage.setItem("rememberedEmail", sanitizedEmail);
-      } else {
-        localStorage.removeItem("rememberedEmail");
+
+
+      // do not persist remembered email from login page anymore (handled outside if needed)
+      localStorage.removeItem("rememberedEmail");
+
+
+      // backend returns role data in different shapes depending on controller/serializer
+      // Try to normalize into a single role slug used by our route mapping.
+      const roleSlug =
+        user?.role ||
+        user?.roleName ||
+        user?.roles?.[0]?.role?.name ||
+        user?.roles?.[0]?.role?.slug ||
+        user?.roles?.[0]?.roleName ||
+        user?.roles?.[0]?.name ||
+        user?.roles?.[0];
+
+      switch (roleSlug) {
+        case "ADMIN":
+        case "SUPER_ADMIN":
+          navigate("/admin/Dashboard");
+          break;
+        case "HEAD_SALES":
+          navigate("/headsales/Dashboard");
+          break;
+        case "SALES_MANAGER":
+          navigate("/salesmanager/dashboard");
+          break;
+        case "SALES_PERSON":
+          navigate("/salesperson/dashboard");
+          break;
+        default:
+          navigate("/");
       }
 
-      // backend returns first role only (as `role`) or may vary depending on controller
-      const role = user?.role || user?.roles?.[0] || user?.roleName;
 
-      switch (role) {
-        case "ADMIN": navigate("/admin/dashboard"); break;
-        case "HEAD_SALES": navigate("/headsales/dashboard"); break;
-        case "SALES_MANAGER": navigate("/salesmanager/dashboard"); break;
-        case "SALES_PERSON": navigate("/salesperson/dashboard"); break;
-        default: navigate("/");
-      }
 
     } catch (err) {
       console.error(err);
